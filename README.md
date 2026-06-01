@@ -1,62 +1,179 @@
-# TRAIQ AI Workout Program Generator
+# TRAIQ
+AI 기반 종합 운동 프로그램 생성 웹 서비스
 
-TRAIQ is a Next.js app that generates personalized workout and diet guidance with AI.
+## 프로젝트 소개
+이 프로젝트는 운동 입문자부터 상급자까지 종합적인 맞춤 운동 정보가 필요한 사용자를 위해 만들어진 웹 서비스다.
+기존 운동 앱들이 운동 / 식단 / 영양제를 개별로 다루는 것과 달리,
+TRAIQ는 하나의 AI가 이 모든 요소를 통합적으로 설계해 상호 시너지까지 고려한 프로그램을 제공한다.
 
-## Stack
+오픈AI서비스디자인(1641101-01) 기말과제로 제작되었다.
 
-- Next.js 15
-- React 19
+## 주요 기능
+
+### 1. 맞춤 운동 프로그램 자동 생성
+사용자의 프로필(연령, 성별, 신체 정보, 운동 목적, 강도, 경력, 빈도, 보유 장비, 즐겨하는 운동)을 입력하면
+AI가 그날 즉시 실행 가능한 운동 / 식단 / 영양제 / 주간 흐름 / 개인화된 조언을 한 번에 생성한다.
+
+### 2. AI 트레이너 채팅
+현재 사용자의 프로필과 프로그램을 알고 있는 AI 트레이너와 자연어로 대화할 수 있다.
+프로그램 수정 요청 시 ("벤치프레스 대신 인클라인으로 바꿔줘") AI가 자연어를 이해해
+실제 프로그램 데이터를 자동으로 변경한다.
+
+### 3. 운동 시작 모드
+메인 화면에서 "운동 시작" 버튼을 누르면 세트별로 진행되는 가이드 화면이 열린다.
+준비운동 → 운동별 세트 진행 → 자동 휴식 타이머 → 완료 화면 흐름을 안내한다.
+
+### 4. 컨디션 / 부상 정보 반영
+오늘의 컨디션(좋음 / 보통 / 피곤)과 부상 부위를 입력한 뒤 "다시 생성"을 누르면
+AI가 해당 정보를 반영해 강도와 운동 종목을 조정한 새 프로그램을 만들어낸다.
+
+### 5. 개인화 인사
+사용자 이름과 운동 목적을 헤더에 표시하고, 시간대에 맞는 인사말을 자동 출력한다.
+
+## 기술 스택
+- Next.js 15 (App Router)
 - TypeScript
 - Tailwind CSS
-- OpenAI-compatible API endpoint
+- OpenAI SDK (학교 LiteLLM 프록시 경유)
+- 사용 모델: gpt-4.1-mini (기본), claude-haiku-4-5 (폴백)
+- 데이터 저장: localStorage (클라이언트 측)
 
-## Features
+## AI의 역할
 
-- Collects a user's workout profile
-- Generates a personalized workout plan
-- Suggests daily meal guidance
-- Returns AI-generated fitness advice through API routes
+이 서비스 안에서 AI(LLM)는 두 가지 핵심 역할을 수행한다.
 
-## Getting Started
+### 역할 1: 초기 프로그램 생성
 
-1. Install dependencies:
+**입력**
+- 사용자 프로필 JSON (이름, 연령, 성별, 키, 몸무게, 운동 목적, 강도, 경력, 빈도, 장비, 즐겨하는 운동)
 
+**처리**
+- 시스템 프롬프트로 "트레이너 + 영양사" 역할 부여
+- JSON 모드로 구조화된 출력 강제
+- 컨디션 / 부상 정보가 있을 경우 강도와 운동 종목 조정 지시
+
+**출력**
+다음 키를 가진 JSON 객체:
+- summary: 프로그램 한 줄 요약
+- todayWorkout: 준비운동 + 운동 리스트 (세트, 반복, 휴식, 팁) + 중점사항
+- todayDiet: 끼니별 메뉴와 칼로리
+- supplements: 시간대별 영양제 추천
+- weeklyPlan: 이번 주 흐름 요약
+- advice: 사용자 프로필 기반 개인화 조언
+
+**실제 예시**
+- 입력: 24세 남성, 175cm 72kg, 벌크업 목적, 고강도, 중급, 주 4회, 헬스장, 미식축구
+- 출력 summary: "중급 남성의 벌크업을 위한 고강도 헬스장 운동과 고단백 식단"
+- 출력 운동: 스쿼트, 벤치프레스, 데드리프트, 풀업, 오버헤드 프레스 (각 4세트, 8-10회)
+- 출력 advice: "벌크업 시 무리한 중량보다 정확한 자세가 중요하며, 미식축구를 위한 근력과 파워 향상에 중점 두세요"
+
+### 역할 2: AI 트레이너 대화
+
+**입력**
+- 사용자 메시지
+- 현재 사용자 프로필
+- 현재 운동 프로그램
+- 이전 채팅 기록
+
+**처리**
+- 시스템 프롬프트에 현재 프로필과 프로그램을 통째로 주입
+- 단순 질문이면 답변만, 수정 요청이면 updatedProgram 필드까지 채워서 응답
+
+**출력**
+- reply: 사용자에게 보여줄 답변 텍스트
+- updatedProgram: 수정된 프로그램 객체 (수정 요청이 없으면 null)
+
+**실제 예시**
+- 사용자: "벤치프레스를 플랫 벤치프레스 대신에 인클라인으로 바꿔주라"
+- AI reply: "인클라인 벤치프레스로 변경해 윗가슴 자극을 강화할게요. 무게와 세트는 기존과 동일하게 유지합니다"
+- AI updatedProgram: todayWorkout 내 벤치프레스가 인클라인 벤치프레스로 교체된 새 프로그램
+- 결과: 메인 화면의 운동 카드가 실시간으로 업데이트됨
+
+## 페이지 구조
+- `/` : 사용자 정보 입력 화면
+- `/main` : 메인 대시보드 (운동 / 식단 / 영양제 / AI 조언 / 회복 / AI 채팅)
+- `/workout` : 운동 시작 모드 (세트 진행 + 휴식 타이머)
+
+## 실행 방법
+
+### 사전 요구사항
+- Node.js 18 이상
+- npm
+
+### 설치
 ```bash
 npm install
 ```
 
-2. Copy the example environment file and fill in your values:
+### 환경 변수 설정
+프로젝트 루트에 `.env.local` 파일을 생성하고 다음 내용을 작성한다.
+`.env.example` 파일을 참고하면 된다.
 
-```bash
-copy .env.example .env.local
+```env
+OPENAI_BASE_URL=http://13.124.8.224:4000
+OPENAI_API_KEY=발급받은_본인의_LiteLLM_virtual_key
 ```
 
-3. Start the development server:
+- OPENAI_BASE_URL: 학교에서 운영하는 LiteLLM 프록시 서버 주소
+- OPENAI_API_KEY: 학교에서 발급한 LiteLLM virtual key (sk-로 시작)
 
+채점자분께서는 본인 키 또는 평가용으로 별도 전달된 키를 사용하시면 된다.
+
+### 실행
 ```bash
 npm run dev
 ```
 
-4. Open `http://localhost:3000`
+이후 브라우저에서 `http://localhost:3000` 접속한다.
 
-## Environment Variables
-
-Set these values in `.env.local`.
-
-```env
-OPENAI_BASE_URL=your_api_base_url
-OPENAI_API_KEY=your_api_key
+### 프로덕션 빌드 (선택)
+```bash
+npm run build
+npm start
 ```
 
-## Project Structure
+## 폴더 구조
+주요 파일과 폴더:
 
-- `app/page.tsx`: profile input screen
-- `app/main/page.tsx`: main experience page
-- `app/workout/page.tsx`: workout result page
-- `app/api/generate-program/route.ts`: workout program generation API
-- `app/api/assistant/route.ts`: assistant API
+- `app/`
+- `app/page.tsx` : 시작 화면 (프로필 입력 폼)
+- `app/main/page.tsx` : 메인 대시보드
+- `app/workout/page.tsx` : 운동 진행 화면
+- `app/api/`
+- `app/api/generate-program/route.ts` : 프로그램 생성 API
+- `app/api/assistant/route.ts` : AI 트레이너 채팅 API
+- `.env.local` : 환경변수 (gitignore 처리됨, 직접 생성 필요)
+- `.env.example` : 환경변수 템플릿
 
-## Notes
+## 중간과제로부터 고도화한 점
 
-- `.env.local` is ignored by Git and should never be committed.
-- Codex development log files are also ignored by Git.
+중간과제는 기획 단계까지였고, 기말과제에서는 다음을 실제 동작으로 구현했다.
+
+1. **기획서 속 예시를 실제 기능으로 구현**
+   기획서에 적었던 "사용자가 '플랫 벤치프레스를 인클라인으로 바꿔줘'라고 말하면 AI가 운동 계획을 수정" 시나리오를
+   AI 어시스턴트 채팅 + updatedProgram 필드로 실제 동작하게 만들었다.
+
+2. **부상 / 컨디션 입력의 실질 반영**
+   기획서에서는 "부상 정보를 입력하면 앱이 반영해 운동 플랜과 식단을 짠다"라고 적었으나 구체적 흐름이 없었다.
+   기말과제에서는 컨디션 토글 + 부상 메모를 다음 프로그램 생성 시 시스템 프롬프트에 자동 주입해
+   AI가 강도와 운동 종목을 조정하도록 구현했다.
+
+3. **범위의 현실적 조정**
+   기획서에는 인바디 추이, 소셜 커뮤니티, 외부 운동 DB API 연동 등이 포함되어 있었으나,
+   한 학기 안에 핵심 흐름의 완성도를 우선하기 위해 차후 과제로 제외했다.
+   대신 입력 → AI 생성 → 표시 → 자연어 수정 → 운동 진행 → 컨디션 반영 재생성으로 이어지는
+   하나의 일관된 흐름이 끊김 없이 동작하도록 집중했다.
+
+## 한계 및 개선 방향
+
+- 데이터가 localStorage에만 저장되어 기기 간 동기화 불가 (DB 도입 필요)
+- 운동 영상 / 이미지 자료 미포함 (ExerciseDB, wger 등 외부 API 연동 필요)
+- 사용자 인증 / 계정 시스템 미구현
+- LiteLLM 프록시 의존: 학교 서버 운영 종료 시 환경변수만 OpenAI 공식 키로 교체하면 동작 가능
+- AI 응답 품질이 모델 상태에 따라 일부 흔들릴 수 있음 (프롬프트 추가 튜닝 여지 있음)
+
+## 작성자
+- 사법학전공 20220738 최영환
+- 오픈AI서비스디자인 기말과제 (1641101-01)
+
+---
