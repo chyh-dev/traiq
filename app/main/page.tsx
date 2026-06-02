@@ -99,6 +99,7 @@ export default function MainPage() {
     useState<(typeof conditionOptions)[number]["apiValue"]>("normal");
   const [injuryMemo, setInjuryMemo] = useState("");
   const [input, setInput] = useState("");
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,8 +124,12 @@ export default function MainPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!isChatOpen) {
+      return;
+    }
+
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory, isSending]);
+  }, [chatHistory, isSending, isChatOpen]);
 
   const todayLabel = useMemo(() => {
     return new Intl.DateTimeFormat("ko-KR", {
@@ -140,7 +145,7 @@ export default function MainPage() {
       return "";
     }
 
-    return `안녕하세요 ${profile.name}님! 저는 TRAIQ 트레이너예요. 오늘의 운동이나 식단에 대해 궁금한 점이 있거나, 프로그램을 수정하고 싶다면 편하게 말해주세요.\n예: '벤치프레스 말고 인클라인으로 바꿔줘', '오늘 어깨가 좀 뻐근한데 운동 조절 가능해?'`;
+    return `안녕하세요 ${profile.name}님! 저는 TRAIQ 트레이너예요. 오늘의 운동이나 식단에 대해 궁금한 점이 있거나, 프로그램을 수정하고 싶다면 편하게 말해주세요.\n예: "벤치프레스 말고 인클라인으로 바꿔줘", "오늘 어깨가 좀 뻐근한데 운동 조절 가능해?"`;
   }, [profile]);
 
   const hasRecoveryInput = condition !== "normal" || Boolean(injuryMemo.trim());
@@ -181,7 +186,7 @@ export default function MainPage() {
         ...current,
         {
           role: "system",
-          content: "컨디션과 부상 정보를 반영해 프로그램을 새로 만들었어요",
+          content: "컨디션과 부상 정보를 반영해 프로그램을 새로 만들었어요.",
         },
       ]);
       setIsRefreshing(false);
@@ -277,7 +282,7 @@ export default function MainPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-transparent px-4 pb-[29rem] pt-6 text-[#C8CDD5] sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-transparent px-4 pb-24 pt-6 text-[#C8CDD5] sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-4 rounded-[28px] border border-[#2A2A3E] bg-[#1A1A2E]/88 px-5 py-5 backdrop-blur sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -482,10 +487,46 @@ export default function MainPage() {
         </section>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 px-4 pb-4 sm:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-7xl">
-          <div className="pointer-events-auto rounded-[28px] border border-[#2A2A3E] bg-[#1A1A2E]/96 p-4 shadow-[0_-8px_32px_rgba(0,0,0,0.28)] backdrop-blur">
-            <div className="max-h-[400px] space-y-3 overflow-y-auto pr-1">
+      <button
+        type="button"
+        aria-label="Open AI assistant chat"
+        onClick={() => setIsChatOpen(true)}
+        className={[
+          "fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full border border-[#D8FFBF]/20 bg-[#AEF78E] text-black shadow-[0_18px_40px_rgba(0,0,0,0.36)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#c0fb9d]",
+          isChatOpen ? "pointer-events-none scale-90 opacity-0" : "scale-100 opacity-100",
+        ].join(" ")}
+      >
+        <MessageCircleIcon />
+      </button>
+
+      <div
+        className={[
+          "fixed bottom-4 left-4 right-4 z-50 transition duration-300 sm:bottom-6 sm:left-auto sm:right-6",
+          isChatOpen
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-6 opacity-0",
+        ].join(" ")}
+      >
+        <div className="ml-auto w-full max-w-[400px] rounded-[28px] border border-[#2A2A3E] bg-[#1A1A2E]/96 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#AEF78E]">
+                AI Assistant
+              </p>
+              <p className="mt-1 text-sm text-[#8892A0]">TRAIQ 트레이너와 대화하기</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close AI assistant chat"
+              onClick={() => setIsChatOpen(false)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#2A2A3E] bg-[#16213E] text-[#AEF78E] transition hover:border-[#AEF78E] hover:text-white"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          <div className="flex h-[600px] flex-col overflow-hidden rounded-[24px] border border-[#2A2A3E] bg-[#121A31]/90">
+            <div className="flex-1 space-y-3 overflow-y-auto p-4 pr-3">
               {welcomeMessage ? <ChatBubble role="assistant" content={welcomeMessage} /> : null}
               {chatHistory.map((message, index) => (
                 <ChatBubble
@@ -498,21 +539,23 @@ export default function MainPage() {
               <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleSend} className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                placeholder="AI에게 물어보세요"
-                className="w-full rounded-2xl border border-[#2A2A3E] bg-[#16213E] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6F7885] focus:border-[#AEF78E] focus:ring-2 focus:ring-[#AEF78E]/30"
-              />
-              <button
-                type="submit"
-                disabled={isSending || !input.trim()}
-                className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-black text-white transition hover:bg-[#ff7f52] disabled:cursor-not-allowed disabled:bg-[#7A4A38]"
-              >
-                보내기
-              </button>
+            <form onSubmit={handleSend} className="border-t border-[#2A2A3E] bg-[#1A1A2E] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder="AI에게 물어보세요"
+                  className="w-full rounded-2xl border border-[#2A2A3E] bg-[#16213E] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6F7885] focus:border-[#AEF78E] focus:ring-2 focus:ring-[#AEF78E]/30"
+                />
+                <button
+                  type="submit"
+                  disabled={isSending || !input.trim()}
+                  className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-black text-white transition hover:bg-[#ff7f52] disabled:cursor-not-allowed disabled:bg-[#7A4A38]"
+                >
+                  보내기
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -555,6 +598,43 @@ function TypingBubble() {
         </span>
       </div>
     </div>
+  );
+}
+
+function MessageCircleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-7 w-7"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 10h10" />
+      <path d="M7 14h6" />
+      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-4-.98L3 21l1.98-5.5A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
   );
 }
 
